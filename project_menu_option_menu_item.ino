@@ -2,6 +2,12 @@
 #include <Adafruit_SSD1306.h>
 #include "Menu.h"
 
+/**
+ * variable declaration and allowed value:
+ *  - screen_type: 'm', 'i', 'f' (menu, menu_item, function)
+ *  - instruction: based on value read from MenuItem::getFunction()
+ */
+
 const uint8_t INPUT_PIN = A0;
 const uint8_t BTN_PIN = 8;
 const uint8_t SCREEN_WIDTH = 128;
@@ -127,16 +133,13 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0X3C)){Serial.println("SSD1306 allocation failed"); while(true){}}
+  pinMode(BTN_PIN, INPUT);
   screen_type = 'm';
   instruction = 'o';
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  selectScreen();
-}
-
-void selectScreen(){
   switch(screen_type){
     case 'm':
       screenMenu();
@@ -145,7 +148,10 @@ void selectScreen(){
     case 'i':
       screenItem();
       break;
-  }
+
+    case 'f':
+      doFunction();
+      break;
 }
 
 void screenMenu(){
@@ -202,11 +208,11 @@ void screenItem(){
   }
   display.display();  
   if(digitalRead(BTN_PIN) == HIGH){
+    screen_type = 'f';
     instruction = curr_item.getFunction();
     Serial.print("Instruction: ");
     Serial.println(curr_item.getFunction());
   }
-  doFunction();
 }
 
 void drawArrowTriangle(unsigned char next_prev){
@@ -226,6 +232,15 @@ void doFunction(){
     case 'x':
       screen_type = 'm';
       break;
+
+    case 'a':
+    break;
+
+    case 'b':
+    break;
+
+    case 'c':
+    break;
   }
 }
 
