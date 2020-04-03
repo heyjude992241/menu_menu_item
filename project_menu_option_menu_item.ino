@@ -18,12 +18,10 @@ const uint8_t MENU_COUNT = 3;
 const uint8_t ITEM_PER_PAGE = 4;
 
 Menu curr_menu;
-MenuItem curr_item;
+MenuItem* curr_item;
 int analog_read;
 char buff[MAX_ITEMTITLE_LEN] = {'0'};
 uint8_t mapped_read;
-uint8_t now_item;
-uint8_t now_page;
 unsigned char instruction;
 unsigned char screen_type;
 
@@ -64,6 +62,14 @@ const uint8_t bitmap_icons[MENU_COUNT][128] PROGMEM = {
     0xff, 0xc7, 0xfe, 0x00, 0x7f, 0xff, 0xfc, 0x00, 0x7f, 0xff, 0xfc, 0x00, 0x31, 0xff, 0x18, 0x00, 
     0x00, 0xfe, 0x00, 0x00, 0x00, 0x7c, 0x00, 0x00, 0x00, 0x7c, 0x00, 0x00, 0x00, 0x7c, 0x00, 0x00
   }
+};
+
+const unsigned char down_arrow [] PROGMEM = {
+  0x00, 0x88, 0x50, 0x20, 0x00
+};
+
+const unsigned char down_arrow_black [] PROGMEM = {
+  0x00, 0x00, 0x00, 0x00, 0x00
 };
 
 MenuItem gps_item[] = {
@@ -140,6 +146,8 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+  display.clearDisplay();
+  analog_read = analogRead(INPUT_PIN);
   switch(screen_type){
     case 'm':
       screenMenu();
@@ -149,21 +157,18 @@ void loop() {
       screenItem();
       break;
 
-    case 'f':
-      doFunction();
-      break;
+//    case 'f':
+//      doFunction();
+//      break;
+  }
+  display.display();
+  debugGlobalVar();
 }
 
 void screenMenu(){
-  display.clearDisplay();
   display.setTextColor(WHITE);
   display.setTextSize(2);
-  analog_read = analogRead(INPUT_PIN);
   mapped_read = map(analog_read, 0, 1000, 0, 5); //make toHigh n+1 so that last reading are readable rather than flactuate between the boudary
-  Serial.print("Analog value: ");
-  Serial.println(analog_read);
-  Serial.print("Mapped value: ");
-  Serial.println(mapped_read);
 
   curr_menu = mapped_read <= (MENU_COUNT-1) ? menu[mapped_read] : menu[MENU_COUNT-1];
   display.clearDisplay();
@@ -181,38 +186,34 @@ void screenMenu(){
 }
 
 void screenItem(){
-  analog_read = analogRead(INPUT_PIN);
   mapped_read = map(analog_read, 0, 1018, 0, 10); //there will be (10+1) options can be scrolled
-  display.clearDisplay();
   display.setTextColor(WHITE);
   display.setTextSize(1);
   
-  curr_item = (mapped_read <= curr_menu.getItemCount()-1) ? *(curr_menu.getMenuItem()+mapped_read) : *(curr_menu.getMenuItem()+(curr_menu.getItemCount()-1));
+  curr_item = (mapped_read <= curr_menu.getItemCount()-1) ? curr_menu.getMenuItem()+mapped_read : curr_menu.getMenuItem()+(curr_menu.getItemCount()-1);
   //since getMenuItem() return pointer to the array, we will access the pointer element using dereference operator
     
-  display.fillTriangle(curr_item.getX(), curr_item.getY()+1, curr_item.getX(), curr_item.getY()+5, curr_item.getX()+3, curr_item.getY()+2, WHITE);
-  display.setCursor(curr_item.getX()+8, curr_item.getY());
+  display.fillTriangle(curr_item->getX(), curr_item->getY()+1, curr_item->getX(), curr_item->getY()+5, curr_item->getX()+3, curr_item->getY()+2, WHITE);
+  display.setCursor(curr_item->getX()+8, curr_item->getY());
   //This is the critical part-reading the PROGMEM stored string
-  strcpy_P(buff, (char *)pgm_read_word(&(item_title[curr_menu.getOrder()][curr_item.getOrder()])));
+  strcpy_P(buff, (char *)pgm_read_word(&(item_title[curr_menu.getOrder()][curr_item->getOrder()])));
   display.print(buff);
   memset(buff, 0, MAX_ITEMTITLE_LEN);
     
   for(int i=0; i<curr_menu.getItemCount(); i++){
-    MenuItem item = *(curr_menu.getMenuItem()+i);
-    if(item.getPage() == curr_item.getPage() && (item.getOrder() != curr_item.getOrder())){
-      display.setCursor(item.getX(), item.getY());
-      strcpy_P(buff, (char *)pgm_read_word(&(item_title[curr_menu.getOrder()][item.getOrder()])));
+    MenuItem* item = curr_menu.getMenuItem()+i;
+    if(item->getPage() == curr_item->getPage() && (item->getOrder() != curr_item->getOrder())){
+      display.setCursor(item->getX(), item->getY());
+      strcpy_P(buff, (char *)pgm_read_word(&(item_title[curr_menu.getOrder()][item->getOrder()])));
       display.print(buff);
       memset(buff, 0, MAX_ITEMTITLE_LEN);
     }
   }
   display.display();  
-  if(digitalRead(BTN_PIN) == HIGH){
-    screen_type = 'f';
-    instruction = curr_item.getFunction();
-    Serial.print("Instruction: ");
-    Serial.println(curr_item.getFunction());
-  }
+//  if(digitalRead(BTN_PIN) == HIGH){   
+//    instruction = curr_item.getFunction();
+//    screen_type = 'f';
+//  }
 }
 
 void drawArrowTriangle(unsigned char next_prev){
@@ -252,4 +253,15 @@ uint8_t getTitleStartX(char* title){
   //Serial.print("Elemen length: ");
   //Serial.println(elem_length);
   return (SCREEN_WIDTH-(elem_length*10))/2;
+}
+
+void debugGlobalVar(){
+  Serial.println(F("-----------------------"));
+  Serial.print(F("screen_type: "));
+  Serial.println((char) screen_type);
+  Serial.print(F("mapped_read: "));
+  Serial.println(mapped_read);
+  Serial.print(F("instruction: "));
+  Serial.println((char) instruction);
+  Serial.println(F("-----------------------"));
 }
